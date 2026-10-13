@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="حاسبة العقارات">
+    <title>حاسبة العقارات التجارية</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-bg': '#0B192C',
+                        'navy-card': '#1E3E62',
+                        'green-emerald': '#059669',
+                        'green-mint': '#10B981',
+                        'green-light': '#D1FAE5',
+                        'green-dark': '#064E3B'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <style>
+        * {
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #0B192C;
+            color: #F8FAFC;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            min-height: 100vh;
+        }
+
+        input[type="number"], input[type="text"], select {
+            font-size: 16px !important;
+        }
+
+        .green-card {
+            background: linear-gradient(145deg, #064E3B 0%, #047857 100%);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+            border-radius: 20px;
+        }
+
+        .input-card {
+            background: #0F2E2B;
+            border: 1.5px solid #059669;
+            color: #ECFDF5;
+            font-weight: 600;
+            padding: 12px 16px;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .input-card:focus {
+            outline: none;
+            border-color: #34D399;
+            background-color: #064E3B;
+            box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
+        }
+
+        .calc-card, .floor-card {
+            border: 2px solid #059669;
+            background-color: #064E3B;
+            border-radius: 14px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            color: #A7F3D0;
+        }
+
+        .calc-card.selected, .floor-card.selected {
+            border-color: #34D399;
+            background-color: #10B981;
+            color: #064E3B;
+            font-weight: 800;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .ios-toggle {
+            position: relative;
+            width: 52px;
+            height: 30px;
+            background-color: #1E3E62;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border: 1px solid #059669;
+        }
+        
+        .ios-toggle.active {
+            background-color: #10B981;
+        }
+        
+        .ios-toggle::after {
+            content: '';
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            background-color: #F8FAFC;
+            border-radius: 50%;
+            top: 1px;
+            right: 1px;
+            transition: right 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        
+        .ios-toggle.active::after {
+            right: 23px;
+        }
+
+        .hidden-field {
+            display: none;
+        }
+
+        .printable-container {
+            background: linear-gradient(145deg, #0F2E2B 0%, #064E3B 100%);
+            color: #ECFDF5;
+            padding: 30px;
+            border-radius: 20px;
+            margin: 20px 0;
+            border: 2px solid #059669;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        }
+
+        .printable-container h2 {
+            color: #34D399;
+            margin-bottom: 20px;
+            font-size: 22px;
+            font-weight: 900;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .printable-container p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #A7F3D0;
+        }
+
+        .printable-item {
+            border: 2px solid #10B981;
+            padding: 15px;
+            margin: 12px 0;
+            border-radius: 12px;
+            background: rgba(5, 150, 105, 0.1);
+            backdrop-filter: blur(10px);
+            color: #ECFDF5;
+        }
+
+        .printable-item strong {
+            color: #34D399;
+            font-weight: 900;
+        }
+
+        .printable-item small {
+            color: #A7F3D0;
+            opacity: 0.9;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #064E3B;
+            border: 2px solid #10B981;
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            color: #ECFDF5;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .printable-content {
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body class="pb-12 pt-4 px-4 sm:px-6">
+
+    <div class="max-w-md mx-auto">
+        <!-- Header Section -->
+        <div class="flex items-center justify-between mb-6 pt-2">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-green-emerald flex items-center justify-center text-white text-2xl shadow-lg border border-green-mint">
+                    📊
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-green-mint leading-tight">حاسبة العقارات</h1>
+                    <p class="text-xs text-gray-400">قيمة الإيجار الشهري خلال سنوات التعاقد</p>
+                </div>
+            </div>
+            <span class="text-xs bg-green-emerald/30 text-green-mint font-bold px-3 py-1 rounded-full border border-green-mint/30">v10.1</span>
+        </div>
+
+        <!-- Projects Navigation -->
+        <div class="flex gap-2 mb-4 no-print">
+            <button onclick="openProjectsModal()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                💾 المشاريع
+            </button>
+            <button onclick="newProject()" class="flex-1 bg-green-emerald hover:bg-green-600 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                ➕ جديد
+            </button>
+        </div>
+
+        <!-- Main Form Container -->
+        <div class="green-card p-6 mb-6 no-print">
+            
+            <!-- Project Name -->
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-green-mint uppercase tracking-wider mb-2">📝 اسم المشروع</label>
+                <input type="text" id="projectName" placeholder="مثال: برج النيل - مدينة نصر" class="input-card w-full">
+            </div>
+
+            <!-- 1. Calculation Method -->
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-green-mint uppercase tracking-wider mb-3">⚙️ طريقة الحساب</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="calc-card selected" data-calc="area" onclick="selectCalcMethod('area')">
+                        <div class="font-bold text-sm">بالمساحة 📐</div>
+                        <div class="text-[10px] opacity-80 mt-0.5">By Square Meters</div>
+                    </div>
+                    <div class="calc-card" data-calc="units" onclick="selectCalcMethod('units')">
+                        <div class="font-bold text-sm">بالوحدات 🏢</div>
+                        <div class="text-[10px] opacity-80 mt-0.5">By Number of Units</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Financial Inputs -->
+            <div class="border-t border-green-mint/20 pt-5 mb-6 space-y-4">
+                <label class="block text-xs font-bold text-green-mint uppercase tracking-wider">💰 البيانات المالية والتعاقد</label>
+
+                <div>
+                    <label class="block text-xs font-medium text-green-light mb-1">تكلفة الإنشاء الإجمالية (ج.م)</label>
+                    <input type="number" id="constructionCost" placeholder="12000000" value="12000000" class="input-card w-full">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-green-light mb-1">إيجار المالك شهري (ج.م)</label>
+                        <input type="number" id="landlordRent" placeholder="120000" value="120000" class="input-card w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-green-light mb-1">زيادة إيجار المالك (%)</label>
+                        <input type="number" id="landlordRentIncrease" placeholder="10" value="10" class="input-card w-full">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-green-light mb-1">مدة التعاقد (سنوات)</label>
+                        <input type="number" id="contractDuration" placeholder="5" value="5" min="1" class="input-card w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-green-light mb-1">زيادة المستأجرين (%)</label>
+                        <input type="number" id="tenantRentIncrease" placeholder="10" value="10" class="input-card w-full">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-green-light mb-1">نسبة الربح على الاسترجاع (%)</label>
+                        <input type="number" id="profitMargin" placeholder="25" value="25" class="input-card w-full">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-green-light mb-1">مصروفات تشغيل (شهرية)</label>
+                        <input type="number" id="operatingExpenses" placeholder="1000" value="1000" class="input-card w-full">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-green-light mb-1">نسبة الإشغال/الأمان (%)</label>
+                    <input type="number" id="occupancyRate" placeholder="90" value="90" class="input-card w-full">
+                </div>
+            </div>
+
+            <!-- 3. Architectural Setup -->
+            <div class="border-t border-green-mint/20 pt-5 mb-6">
+                <label class="block text-xs font-bold text-green-mint uppercase tracking-wider mb-3">📐 التكوين المعماري</label>
+
+                <!-- Show for Area Calculation -->
+                <div id="areaInputField" class="mb-4">
+                    <label class="block text-xs font-medium text-green-light mb-1">المساحة الإجمالية المبنية (م2)</label>
+                    <input type="number" id="totalArea" placeholder="2000" value="2000" class="input-card w-full">
+                </div>
+
+                <!-- Show for Units Calculation -->
+                <div id="unitsInputField" class="hidden-field mb-4">
+                    <label class="block text-xs font-medium text-green-light mb-1">عدد الوحدات الإجمالي</label>
+                    <input type="number" id="numberOfUnits" placeholder="40" value="40" class="input-card w-full">
+                </div>
+
+                <!-- Floor Type Selection -->
+                <div class="mb-4">
+                    <label class="block text-xs font-medium text-green-light mb-2">نوع المبنى</label>
+                    <div class="space-y-2">
+                        <div class="floor-card selected" data-floor="ground" onclick="selectFloor('ground')">
+                            <div class="font-bold text-xs">🏪 دور أرضي فقط</div>
+                        </div>
+                        <div class="floor-card" data-floor="ground-roof" onclick="selectFloor('ground-roof')">
+                            <div class="font-bold text-xs">🏢 دور أرضي + روف</div>
+                        </div>
+                        <div class="floor-card" data-floor="ground-first-roof" onclick="selectFloor('ground-first-roof')">
+                            <div class="font-bold text-xs">🏬 دور أرضي + أول + روف</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Outdoor Space Toggle -->
+                <div class="flex items-center justify-between p-3.5 bg-green-dark/60 rounded-xl border border-green-emerald mb-4">
+                    <div>
+                        <div class="font-bold text-xs text-green-mint">🌳 مساحة خارجية</div>
+                        <div class="text-[10px] text-gray-300">إضافة نسبة زيادة للمساحة الخارجية</div>
+                    </div>
+                    <div class="ios-toggle" id="outdoorToggle" onclick="toggleOutdoor()"></div>
+                </div>
+
+                <!-- Outdoor Space Area -->
+                <div id="outdoorAreaField" class="hidden-field">
+                    <label class="block text-xs font-medium text-green-light mb-1">مساحة الأوت دور (م2)</label>
+                    <input type="number" id="outdoorArea" placeholder="500" value="500" class="input-card w-full">
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2">
+                <button onclick="calculateROI()" class="flex-1 bg-green-mint hover:bg-green-emerald text-navy-bg font-extrabold py-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2">
+                    <span>✨</span> احسب
+                </button>
+                <button onclick="saveCurrentProject()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 rounded-xl shadow-lg transition-all text-sm flex items-center justify-center gap-2">
+                    <span>💾</span> حفظ
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Container -->
+        <div id="resultsContainer" class="hidden space-y-4">
+            
+            <!-- Printable Content -->
+            <div class="printable-container" id="printableContent">
+                <h2>جدول القيمة الإيجارية</h2>
+                <p id="exportProjectName" style="color: #059669; font-weight: bold; margin-bottom: 15px;"></p>
+                <div id="yearlyRentList">
+                    <!-- Populated dynamically by JavaScript -->
+                </div>
+                <p style="margin-top: 20px; text-align: center; color: #666; font-size: 12px;">
+                    حاسبة العقارات التجارية v10.1 | <span id="exportDate"></span>
+                </p>
+            </div>
+
+            <!-- Export Buttons -->
+            <div class="green-card p-4 space-y-2.5 no-print">
+                <button onclick="exportAsImage()" class="w-full bg-green-mint hover:bg-green-emerald text-navy-bg font-black py-3.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md">
+                    📸 حفظ صورة JPG
+                </button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="exportAsPDF()" class="bg-green-emerald hover:bg-green-600 text-white border border-green-mint/40 font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                        📄 حفظ PDF
+                    </button>
+                    <button onclick="printPage()" class="bg-blue-600 hover:bg-blue-700 text-white border border-blue-400 font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                        🖨️ طباعة
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Projects Modal -->
+    <div id="projectsModal" class="modal">
+        <div class="modal-content max-w-sm">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-black text-green-mint">المشاريع المحفوظة</h2>
+                <button onclick="closeProjectsModal()" class="text-2xl text-green-mint hover:text-green-emerald">&times;</button>
+            </div>
+            <div id="projectsList" class="space-y-2 max-h-96 overflow-y-auto">
+                <!-- Populated by JavaScript -->
+            </div>
+            <div class="mt-4 flex gap-2">
+                <button onclick="closeProjectsModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-lg text-sm">
+                    إغلاق
+                </button>
+                <button onclick="deleteAllProjects()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg text-sm">
+                    حذف الكل
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFloor = 'ground';
+        let hasOutdoorSpace = false;
+        let calcMethod = 'area';
+        let lastCalculatedData = null;
+
+        const floorMultipliers = {
+            'ground': 1,
+            'ground-roof': 1.3,
+            'ground-first-roof': 1.6
+        };
+
+        // ===== Project Management =====
+        function saveCurrentProject() {
+            const projectName = document.getElementById('projectName').value.trim();
+            if (!projectName) {
+                alert('يرجى إدخال اسم المشروع');
+                return;
+            }
+
+            const project = {
+                name: projectName,
+                timestamp: new Date().toLocaleString('ar-EG'),
+                data: {
+                    constructionCost: document.getElementById('constructionCost').value,
+                    landlordRent: document.getElementById('landlordRent').value,
+                    landlordRentIncrease: document.getElementById('landlordRentIncrease').value,
+                    contractDuration: document.getElementById('contractDuration').value,
+                    tenantRentIncrease: document.getElementById('tenantRentIncrease').value,
+                    profitMargin: document.getElementById('profitMargin').value,
+                    operatingExpenses: document.getElementById('operatingExpenses').value,
+                    occupancyRate: document.getElementById('occupancyRate').value,
+                    totalArea: document.getElementById('totalArea').value,
+                    numberOfUnits: document.getElementById('numberOfUnits').value,
+                    calcMethod: calcMethod,
+                    currentFloor: currentFloor,
+                    hasOutdoorSpace: hasOutdoorSpace,
+                    outdoorArea: document.getElementById('outdoorArea').value
+                }
+            };
+
+            let projects = JSON.parse(localStorage.getItem('rentProjects')) || [];
+            projects.push(project);
+            localStorage.setItem('rentProjects', JSON.stringify(projects));
+            alert('✅ تم حفظ المشروع بنجاح');
+        }
+
+        function openProjectsModal() {
+            const modal = document.getElementById('projectsModal');
+            const projectsList = document.getElementById('projectsList');
+            let projects = JSON.parse(localStorage.getItem('rentProjects')) || [];
+
+            if (projects.length === 0) {
+                projectsList.innerHTML = '<p class="text-center text-gray-400 py-6">لا توجد مشاريع محفوظة</p>';
+            } else {
+                projectsList.innerHTML = projects.map((proj, index) => `
+                    <div class="bg-navy-bg/50 border border-green-mint/30 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-green-mint text-sm">${proj.name}</p>
+                            <p class="text-xs text-gray-400">${proj.timestamp}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="loadProject(${index})" class="bg-green-emerald hover:bg-green-600 text-white font-bold py-1 px-3 rounded text-xs">
+                                📂 فتح
+                            </button>
+                            <button onclick="deleteProject(${index})" class="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            modal.classList.add('show');
+        }
+
+        function closeProjectsModal() {
+            document.getElementById('projectsModal').classList.remove('show');
+        }
+
+        function loadProject(index) {
+            let projects = JSON.parse(localStorage.getItem('rentProjects')) || [];
+            const project = projects[index];
+
+            document.getElementById('projectName').value = project.name;
+            document.getElementById('constructionCost').value = project.data.constructionCost;
+            document.getElementById('landlordRent').value = project.data.landlordRent;
+            document.getElementById('landlordRentIncrease').value = project.data.landlordRentIncrease;
+            document.getElementById('contractDuration').value = project.data.contractDuration;
+            document.getElementById('tenantRentIncrease').value = project.data.tenantRentIncrease;
+            document.getElementById('profitMargin').value = project.data.profitMargin;
+            document.getElementById('operatingExpenses').value = project.data.operatingExpenses;
+            document.getElementById('occupancyRate').value = project.data.occupancyRate;
+            document.getElementById('totalArea').value = project.data.totalArea;
+            document.getElementById('numberOfUnits').value = project.data.numberOfUnits;
+            document.getElementById('outdoorArea').value = project.data.outdoorArea || 500;
+
+            selectCalcMethod(project.data.calcMethod);
+            selectFloor(project.data.currentFloor);
+            if (project.data.hasOutdoorSpace) toggleOutdoor();
+
+            closeProjectsModal();
+            alert('✅ تم تحميل المشروع بنجاح');
+        }
+
+        function deleteProject(index) {
+            if (confirm('هل تريد حذف هذا المشروع؟')) {
+                let projects = JSON.parse(localStorage.getItem('rentProjects')) || [];
+                projects.splice(index, 1);
+                localStorage.setItem('rentProjects', JSON.stringify(projects));
+                openProjectsModal();
+            }
+        }
+
+        function deleteAllProjects() {
+            if (confirm('هل تريد حذف جميع المشاريع؟ هذا الإجراء لا يمكن التراجع عنه!')) {
+                localStorage.removeItem('rentProjects');
+                openProjectsModal();
+                alert('✅ تم حذف جميع المشاريع');
+            }
+        }
+
+        function newProject() {
+            if (confirm('هل تريد بدء مشروع جديد؟')) {
+                document.getElementById('projectName').value = '';
+                document.getElementById('constructionCost').value = 12000000;
+                document.getElementById('landlordRent').value = 120000;
+                document.getElementById('landlordRentIncrease').value = 10;
+                document.getElementById('contractDuration').value = 5;
+                document.getElementById('tenantRentIncrease').value = 10;
+                document.getElementById('profitMargin').value = 25;
+                document.getElementById('operatingExpenses').value = 1000;
+                document.getElementById('occupancyRate').value = 90;
+                document.getElementById('totalArea').value = 2000;
+                document.getElementById('numberOfUnits').value = 40;
+                document.getElementById('outdoorArea').value = 500;
+                selectCalcMethod('area');
+                selectFloor('ground');
+                document.getElementById('resultsContainer').classList.add('hidden');
+            }
+        }
+
+        // ===== UI Functions =====
+        function selectCalcMethod(method) {
+            calcMethod = method;
+            document.querySelectorAll('.calc-card').forEach(card => card.classList.remove('selected'));
+            document.querySelector(`[data-calc="${method}"]`).classList.add('selected');
+            
+            const unitsField = document.getElementById('unitsInputField');
+            const areaField = document.getElementById('areaInputField');
+            
+            if (method === 'area') {
+                unitsField.classList.add('hidden-field');
+                areaField.classList.remove('hidden-field');
+            } else {
+                unitsField.classList.remove('hidden-field');
+                areaField.classList.add('hidden-field');
+            }
+        }
+
+        function selectFloor(floor) {
+            currentFloor = floor;
+            document.querySelectorAll('.floor-card').forEach(card => card.classList.remove('selected'));
+            document.querySelector(`[data-floor="${floor}"]`).classList.add('selected');
+        }
+
+        function toggleOutdoor() {
+            const toggle = document.getElementById('outdoorToggle');
+            const outdoorAreaField = document.getElementById('outdoorAreaField');
+            hasOutdoorSpace = !hasOutdoorSpace;
+            toggle.classList.toggle('active');
+            
+            if (hasOutdoorSpace) {
+                outdoorAreaField.classList.remove('hidden-field');
+            } else {
+                outdoorAreaField.classList.add('hidden-field');
+            }
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('ar-EG', {
+                style: 'currency',
+                currency: 'EGP',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(value);
+        }
+
+        // ===== Calculation =====
+        function calculateROI() {
+            const constructionCost = parseFloat(document.getElementById('constructionCost').value) || 0;
+            const landlordRentBase = parseFloat(document.getElementById('landlordRent').value) || 0;
+            const landlordRentIncrease = (parseFloat(document.getElementById('landlordRentIncrease').value) || 0) / 100;
+            const contractDuration = parseInt(document.getElementById('contractDuration').value) || 1;
+            const tenantRentIncrease = (parseFloat(document.getElementById('tenantRentIncrease').value) || 0) / 100;
+            const profitMargin = (parseFloat(document.getElementById('profitMargin').value) || 0) / 100;
+            const operatingExpenses = parseFloat(document.getElementById('operatingExpenses').value) || 0;
+            const occupancyRate = (parseFloat(document.getElementById('occupancyRate').value) || 100) / 100;
+            const numberOfUnits = calcMethod === 'units' ? (parseFloat(document.getElementById('numberOfUnits').value) || 1) : 1;
+
+            if (!constructionCost || !contractDuration) {
+                alert('يرجى التأكد من ملء الحقول المطلوبة');
+                return;
+            }
+
+            const annualCapitalRecovery = constructionCost / contractDuration;
+            const monthlyCapitalRecovery = annualCapitalRecovery / 12;
+            const monthlyRecoveryWithProfit = monthlyCapitalRecovery * (1 + profitMargin);
+
+            const occupiedUnits = numberOfUnits * occupancyRate;
+            
+            const floorMultiplier = floorMultipliers[currentFloor];
+            let multiplier = floorMultiplier;
+            if (hasOutdoorSpace) multiplier = multiplier * 1.1;
+
+            let yearlyResultsHTML = '';
+            let currentMonthlyRent = 0;
+
+            for (let year = 1; year <= contractDuration; year++) {
+                const landlordRentYear = landlordRentBase * Math.pow(1 + landlordRentIncrease, year - 1);
+                const totalMonthlyRequired = (monthlyRecoveryWithProfit + landlordRentYear + operatingExpenses) * multiplier;
+                const monthlyRentPerUnit = totalMonthlyRequired / occupiedUnits;
+
+                if (year === 1) {
+                    currentMonthlyRent = monthlyRentPerUnit;
+                } else {
+                    currentMonthlyRent = currentMonthlyRent * (1 + tenantRentIncrease);
+                }
+
+                yearlyResultsHTML += `
+                    <div class="printable-item">
+                        <strong>السنة ${year}:</strong> ${formatCurrency(currentMonthlyRent)} شهرياً ${calcMethod === 'units' ? '/ للوحدة' : ''}
+                        ${calcMethod === 'units' ? `<br><small>إيجار المالك: ${formatCurrency(landlordRentYear)}</small>` : ''}
+                    </div>
+                `;
+            }
+
+            document.getElementById('yearlyRentList').innerHTML = yearlyResultsHTML;
+            document.getElementById('exportProjectName').innerText = `المشروع: ${document.getElementById('projectName').value || 'بدون عنوان'}`;
+            document.getElementById('exportDate').innerText = new Date().toLocaleDateString('ar-EG');
+
+            lastCalculatedData = yearlyResultsHTML;
+            document.getElementById('resultsContainer').classList.remove('hidden');
+            document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ===== Export Functions =====
+        function exportAsImage() {
+            const element = document.getElementById('printableContent');
+            html2canvas(element, {
+                scale: 2,
+                backgroundColor: "#ffffff",
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                const projectName = document.getElementById('projectName').value || 'جدول-الإيجار';
+                link.download = `${projectName}-${new Date().toISOString().slice(0,10)}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.95);
+                link.click();
+                alert('✅ تم حفظ الصورة بنجاح');
+            }).catch(err => {
+                console.error('خطأ:', err);
+                alert('❌ حدث خطأ في حفظ الصورة - حاول مرة أخرى');
+            });
+        }
+
+        function exportAsPDF() {
+            const element = document.getElementById('printableContent');
+            html2canvas(element, {
+                scale: 2,
+                backgroundColor: "#ffffff",
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                const projectName = document.getElementById('projectName').value || 'جدول-الإيجار';
+                
+                // Create a data URL for the canvas image
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                
+                // Create PDF download
+                const pdf = document.createElement('a');
+                pdf.href = 'data:application/pdf;base64,' + btoa(imgData);
+                pdf.download = `${projectName}-${new Date().toISOString().slice(0,10)}.pdf`;
+                
+                // For simplicity, we'll use a workaround with canvas to PDF
+                // Create a simple HTML-to-PDF by opening the printable content in a new window
+                const printWindow = window.open('', '', 'width=800,height=600');
+                printWindow.document.write(`
+                    <html dir="rtl">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>${projectName}</title>
+                        <style>
+                            body { font-family: Arial; margin: 20px; background: white; color: black; }
+                            h2 { color: #059669; }
+                            .printable-item { border: 1px solid #059669; padding: 10px; margin: 10px 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>جدول القيمة الإيجارية</h2>
+                        <p>${document.getElementById('exportProjectName').innerText}</p>
+                        ${element.innerHTML}
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                setTimeout(() => {
+                    printWindow.print();
+                    printWindow.close();
+                    alert('✅ سيتم حفظ الملف كـ PDF عند الطباعة');
+                }, 250);
+            }).catch(err => {
+                console.error('خطأ:', err);
+                alert('❌ حدث خطأ - حاول الطباعة المباشرة بدلاً من ذلك');
+            });
+        }
+
+        function printPage() {
+            const printWindow = window.open('', '', 'width=800,height=600');
+            const element = document.getElementById('printableContent');
+            printWindow.document.write(`
+                <html dir="rtl">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>${document.getElementById('projectName').value || 'جدول-الإيجار'}</title>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            margin: 30px; 
+                            background: #0B192C; 
+                            color: #ECFDF5; 
+                            direction: rtl;
+                        }
+                        h2 { 
+                            color: #34D399; 
+                            font-size: 24px;
+                            margin-bottom: 20px;
+                            font-weight: 900;
+                        }
+                        p { 
+                            margin: 5px 0;
+                            font-size: 14px;
+                            color: #A7F3D0;
+                        }
+                        .printable-item { 
+                            border: 2px solid #10B981; 
+                            padding: 15px; 
+                            margin: 12px 0; 
+                            border-radius: 12px;
+                            background: rgba(5, 150, 105, 0.15);
+                            color: #ECFDF5;
+                        }
+                        .printable-item strong {
+                            color: #34D399;
+                            font-weight: 900;
+                        }
+                        .printable-item small {
+                            color: #A7F3D0;
+                            display: block;
+                            margin-top: 8px;
+                            opacity: 0.9;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${element.innerHTML}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
+        }
+    </script>
+</body>
+</html>
